@@ -2,7 +2,7 @@ package es.us.isa.restest.bot.generate;
 
 import es.us.isa.botica.bot.AbstractBotApplication;
 import es.us.isa.restest.generators.AbstractTestCaseGenerator;
-import es.us.isa.restest.runners.BoticaRESTestLoader;
+import es.us.isa.restest.runners.RESTestLoader;
 import es.us.isa.restest.testcases.TestCase;
 import es.us.isa.restest.util.RESTestException;
 import es.us.isa.restest.writers.restassured.RESTAssuredWriter;
@@ -24,14 +24,14 @@ import org.json.JSONObject;
  */
 public class TestCasesGeneratorBot extends AbstractBotApplication {
   private String userConfigPath;
-  private BoticaRESTestLoader loader;
+  private RESTestLoader loader;
 
   private String baseExperimentName;
 
   @Override
   public void configure() {
     this.userConfigPath = System.getenv("USER_CONFIG_PATH");
-    this.loader = new BoticaRESTestLoader(this.userConfigPath);
+    this.loader = new RESTestLoader(this.userConfigPath);
     this.baseExperimentName = this.loader.getExperimentName();
   }
 
