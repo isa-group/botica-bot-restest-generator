@@ -4,5 +4,8 @@
 # IDEA Files
 .idea/
 
+# VSCode Settings
+.vscode/
+
 # Generated Files
 target/
