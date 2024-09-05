@@ -26,49 +26,36 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
   private String userConfigPath;
   private RESTestLoader loader;
 
-  private String baseExperimentName;
-
   @Override
   public void configure() {
     this.userConfigPath = System.getenv("USER_CONFIG_PATH");
     this.loader = new RESTestLoader(this.userConfigPath);
-    this.baseExperimentName = this.loader.getExperimentName();
   }
 
   @Override
   public void executeAction() {
     String batchId = createBatchId();
-    String className;
-
-    // temporary fix for the test reporter, documented in botica-bot-restest-reporter
-    this.loader.setExperimentName(this.baseExperimentName.concat("-").concat(batchId));
 
     try {
       AbstractTestCaseGenerator generator = this.loader.createGenerator();
       Collection<TestCase> testCases = generator.generate();
-      this.saveToFile(testCases, batchId);
+      this.saveTestCases(testCases, batchId);
 
-      RESTAssuredWriter writer = (RESTAssuredWriter) this.loader.createWriter();
+      String className = loader.getTestClassName().concat("_").concat(batchId);
+      this.writeTestClass(className, batchId, testCases);
 
-      // Append the batch id to the class name to allow queuing executions or running multiple
-      // concurrently.
-      className = writer.getClassName().concat("_").concat(batchId);
-      writer.setClassName(className);
-
-      writer.write(testCases);
+      publishOrder(
+          new JSONObject()
+              .put("batchId", batchId)
+              .put("userConfigPath", this.userConfigPath)
+              .put("testClassName", className)
+              .toString());
     } catch (IOException | RESTestException e) {
       throw new RuntimeException(e);
     }
-
-    publishOrder(
-        new JSONObject()
-            .put("batchId", batchId)
-            .put("userConfigPath", this.userConfigPath)
-            .put("testClassName", className)
-            .toString());
   }
 
-  private void saveToFile(Collection<TestCase> testCases, String batchId) throws IOException {
+  private void saveTestCases(Collection<TestCase> testCases, String batchId) throws IOException {
     Path targetPath = Files.createDirectories(Path.of(loader.getTargetDirJava()));
     File file = targetPath.resolve(batchId).toFile();
 
@@ -77,6 +64,14 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
         out.writeObject(testCases);
       }
     }
+  }
+
+  private void writeTestClass(String className, String batchId, Collection<TestCase> testCases) {
+    RESTAssuredWriter writer = (RESTAssuredWriter) this.loader.createWriter();
+    writer.setClassName(className);
+    writer.setTestId(batchId);
+
+    writer.write(testCases);
   }
 
   private static String createBatchId() {
