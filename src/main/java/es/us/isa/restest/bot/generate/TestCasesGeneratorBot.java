@@ -29,6 +29,10 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
   @Override
   public void configure() {
     this.userConfigPath = System.getenv("USER_CONFIG_PATH");
+    if (this.userConfigPath == null) {
+      throw new IllegalStateException(
+          "no USER_CONFIG_PATH environment variable was specified for this bot!");
+    }
     this.loader = new RESTestLoader(this.userConfigPath);
   }
 
