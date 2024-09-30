@@ -12,8 +12,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
-import java.util.UUID;
 import org.json.JSONObject;
 
 /**
@@ -23,6 +24,9 @@ import org.json.JSONObject;
  * @author Alberto Mimbrero
  */
 public class TestCasesGeneratorBot extends AbstractBotApplication {
+  public static final DateTimeFormatter DATE_TIME_FORMATTER =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
   private String userConfigPath;
   private RESTestLoader loader;
 
@@ -38,14 +42,14 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
 
   @Override
   public void executeAction() {
-    String batchId = createBatchId();
+    String batchId = generateBatchId();
 
     try {
       AbstractTestCaseGenerator generator = this.loader.createGenerator();
       Collection<TestCase> testCases = generator.generate();
       this.saveTestCases(testCases, batchId);
 
-      String className = loader.getTestClassName().concat("_").concat(batchId);
+      String className = generateTestClassName(loader.getTestClassName(), batchId);
       this.writeTestClass(className, batchId, testCases);
 
       publishOrder(
@@ -78,7 +82,12 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
     writer.write(testCases);
   }
 
-  private static String createBatchId() {
-    return UUID.randomUUID().toString().substring(0, 13).replace("-", "_");
+  private static String generateBatchId() {
+    return DATE_TIME_FORMATTER.format(LocalDateTime.now());
+  }
+
+  private static String generateTestClassName(String baseClassName, String batchId) {
+    String id = batchId.replaceAll("[^a-zA-Z0-9]", "_");
+    return baseClassName.concat("_").concat(id);
   }
 }
