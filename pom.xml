@@ -26,7 +26,7 @@
     <dependency>
       <groupId>es.us.isa</groupId>
       <artifactId>restest</artifactId>
-      <version>1.5.0-SNAPSHOT</version> <!-- using latest git commit from master, new version not published yet -->
+      <version>1.6.0-SNAPSHOT</version> <!-- using latest git commit from master, new version not published yet -->
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/org.json/json -->
