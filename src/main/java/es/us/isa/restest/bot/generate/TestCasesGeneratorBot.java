@@ -12,9 +12,11 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
+import java.util.List;
 import org.json.JSONObject;
 
 /**
@@ -52,13 +54,34 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
       String className = generateTestClassName(loader.getTestClassName(), batchId);
       this.writeTestClass(className, batchId, testCases);
 
-      publishOrder(
+      String message =
           new JSONObject()
               .put("batchId", batchId)
               .put("userConfigPath", this.userConfigPath)
               .put("testClassName", className)
-              .toString());
+              .toString();
+      this.logPublishedOrder(message);
+      publishOrder(message);
     } catch (IOException | RESTestException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void logPublishedOrder(String message) {
+    this.logEvaluation(message, "published.txt");
+  }
+
+  private void logEvaluation(String message, String fileName) {
+    try {
+      String directory = String.format("/app/target/evaluation/%s/", getBotId());
+      Files.createDirectories(Path.of(directory));
+      Files.writeString(
+          Path.of(directory, fileName),
+          message + "\n",
+          StandardOpenOption.WRITE,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.APPEND);
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
