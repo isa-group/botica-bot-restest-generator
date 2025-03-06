@@ -6,16 +6,24 @@ import es.us.isa.restest.runners.RESTestLoader;
 import es.us.isa.restest.testcases.TestCase;
 import es.us.isa.restest.util.RESTestException;
 import es.us.isa.restest.writers.restassured.RESTAssuredWriter;
+import io.swagger.v3.oas.models.OpenAPI;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
+import org.apache.commons.lang3.ArrayUtils;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Generates batches of test cases and their respective test classes using the configuration
@@ -24,11 +32,15 @@ import org.json.JSONObject;
  * @author Alberto Mimbrero
  */
 public class TestCasesGeneratorBot extends AbstractBotApplication {
+  private static final Logger log = LoggerFactory.getLogger(TestCasesGeneratorBot.class);
   public static final DateTimeFormatter DATE_TIME_FORMATTER =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault());
 
   private String userConfigPath;
   private RESTestLoader loader;
+  private String serviceHost;
+
+  private Instant blockGenerationUntil = Instant.now();
 
   @Override
   public void configure() {
@@ -37,11 +49,47 @@ public class TestCasesGeneratorBot extends AbstractBotApplication {
       throw new IllegalStateException(
           "no USER_CONFIG_PATH environment variable was specified for this bot!");
     }
+
     this.loader = new RESTestLoader(this.userConfigPath);
+
+    String proxyBotId = System.getenv("PROXY_BOT_ID");
+    if (proxyBotId != null) {
+      this.setupProxy(proxyBotId);
+    }
+
+    this.registerOrderListener("restrict_generation", this::restrictGeneration);
+  }
+
+  private void setupProxy(String proxyBotId) {
+    OpenAPI specification = this.loader.getSpec().getSpecification();
+    this.serviceHost = specification.getServers().get(0).getUrl();
+    try {
+      URL proxyUrl = new URL("http", this.getBotHostname(proxyBotId), "");
+      specification.getServers().get(0).setUrl(proxyUrl.toString());
+    } catch (MalformedURLException e) {
+      throw new RuntimeException(e);
+    }
+
+    String header = "Proxy-Redirect: " + this.serviceHost;
+    this.loader.setHeaders(ArrayUtils.add(this.loader.getHeaders(), header));
+  }
+
+  private void restrictGeneration(String order, String message) {
+    JSONObject parameters = new JSONObject(message);
+    if (!parameters.getString("service").equals(this.serviceHost)) {
+      return;
+    }
+
+    this.blockGenerationUntil = Instant.ofEpochMilli(parameters.getLong("until"));
+    log.info("Stopping generation until {}", DATE_TIME_FORMATTER.format(this.blockGenerationUntil));
   }
 
   @Override
   public void executeAction() {
+    if (this.blockGenerationUntil.isAfter(Instant.now())) {
+      return;
+    }
+
     String batchId = generateBatchId();
 
     try {
