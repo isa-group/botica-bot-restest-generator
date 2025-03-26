@@ -3,9 +3,7 @@ package es.us.isa.restest.bot.generate;
 import es.us.isa.botica.bot.BaseBot;
 import es.us.isa.botica.bot.OrderHandler;
 import es.us.isa.botica.bot.ProactiveTask;
-import es.us.isa.botica.bot.shutdown.ShutdownRequest;
 import es.us.isa.botica.bot.shutdown.ShutdownRequestHandler;
-import es.us.isa.botica.bot.shutdown.ShutdownResponse;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -36,10 +34,13 @@ public class TestCasesGeneratorBot extends BaseBot {
     }
 
     this.generator = new TestCaseBatchGenerator(userConfigPath);
+    this.setupProxyBotIntegration();
+  }
 
+  private void setupProxyBotIntegration() {
     String proxyBotId = System.getenv("PROXY_BOT_ID");
     if (proxyBotId != null) {
-      generator.setupProxy(this.getBotHostname(proxyBotId));
+      this.generator.setupProxy(this.getBotHostname(proxyBotId));
     }
   }
 
@@ -49,7 +50,7 @@ public class TestCasesGeneratorBot extends BaseBot {
     if (System.getenv("PROXY_BOT_ID") != null) {
       message.append(" Using proxy.");
     }
-    this.notifyUser(message.toString());
+    this.broadcastTelegramMessage(message.toString());
   }
 
   @ProactiveTask
@@ -58,29 +59,26 @@ public class TestCasesGeneratorBot extends BaseBot {
       return;
     }
     JSONObject result = this.generator.generateBatch();
-    this.publishOrder(result.toString());
+    this.publishOrder("executor_bots", "execute_test_cases", result.toString());
   }
 
-  @OrderHandler("restrict_generation")
-  public void restrictGeneration(String message) {
-    JSONObject parameters = new JSONObject(message);
-    if (!parameters.getString("service").equals(this.generator.getServiceHost())) {
+  @OrderHandler("pause_generation")
+  public void pauseGeneration(JSONObject details) {
+    if (!details.getString("service").equals(this.generator.getServiceHost())) {
       return;
     }
 
-    this.blockGenerationUntil = Instant.ofEpochMilli(parameters.getLong("until"));
+    this.blockGenerationUntil = Instant.ofEpochMilli(details.getLong("until"));
     log.info("Stopping generation until {}", DATE_TIME_FORMATTER.format(this.blockGenerationUntil));
   }
 
   @ShutdownRequestHandler
   public void onShutdownRequest() {
-    this.notifyUser("Shutting down...");
+    this.broadcastTelegramMessage("Shutting down...");
   }
 
-  private void notifyUser(String message) {
+  private void broadcastTelegramMessage(String message) {
     this.publishOrder(
-        "user_interaction",
-        "broadcast_message",
-        String.format("[%s] %s", this.getBotId(), message));
+        "telegram_bot", "broadcast_message", String.format("[%s] %s", this.getBotId(), message));
   }
 }
