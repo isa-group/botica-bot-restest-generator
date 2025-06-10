@@ -50,7 +50,7 @@ public class TestCasesGeneratorBot extends BaseBot {
     if (System.getenv("PROXY_BOT_ID") != null) {
       message.append(" Using proxy.");
     }
-    this.broadcastTelegramMessage(message.toString());
+    this.sendTelegramMessage(message.toString());
   }
 
   @ProactiveTask
@@ -74,11 +74,16 @@ public class TestCasesGeneratorBot extends BaseBot {
 
   @ShutdownRequestHandler
   public void onShutdownRequest() {
-    this.broadcastTelegramMessage("Shutting down...");
+    this.sendTelegramMessage("Shutting down...");
   }
 
-  private void broadcastTelegramMessage(String message) {
+  private void sendTelegramMessage(String message) {
     this.publishOrder(
-        "telegram_bot", "broadcast_message", String.format("[%s] %s", this.getBotId(), message));
+        "telegram_bot",
+        "send_message",
+        new JSONObject()
+            .put("recipient", "broadcast")
+            .put("content", String.format("[%s] %s", this.getBotId(), message))
+            .toString());
   }
 }
