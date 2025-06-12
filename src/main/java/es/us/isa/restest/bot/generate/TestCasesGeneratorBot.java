@@ -23,7 +23,7 @@ public class TestCasesGeneratorBot extends BaseBot {
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault());
 
   private TestCaseBatchGenerator generator;
-  private Instant blockGenerationUntil = Instant.now();
+  private Instant pauseExpiration = Instant.now();
 
   @Override
   public void configure() {
@@ -55,21 +55,21 @@ public class TestCasesGeneratorBot extends BaseBot {
 
   @ProactiveTask
   public void executeAction() {
-    if (this.blockGenerationUntil.isAfter(Instant.now())) {
+    if (this.pauseExpiration.isAfter(Instant.now())) {
       return;
     }
     JSONObject result = this.generator.generateBatch();
     this.publishOrder("executor_bots", "execute_test_cases", result.toString());
   }
 
-  @OrderHandler("pause_generation")
-  public void pauseGeneration(JSONObject details) {
+  @OrderHandler("pause_service")
+  public void pauseService(JSONObject details) {
     if (!details.getString("service").equals(this.generator.getServiceHost())) {
       return;
     }
 
-    this.blockGenerationUntil = Instant.ofEpochMilli(details.getLong("until"));
-    log.info("Stopping generation until {}", DATE_TIME_FORMATTER.format(this.blockGenerationUntil));
+    this.pauseExpiration = Instant.ofEpochMilli(details.getLong("until"));
+    log.info("Pausing generation until {}", DATE_TIME_FORMATTER.format(this.pauseExpiration));
   }
 
   @ShutdownRequestHandler
